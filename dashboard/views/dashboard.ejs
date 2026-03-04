@@ -14,28 +14,36 @@
     nav .logout { color: #888; text-decoration: none; font-size: 0.9rem; }
     nav .logout:hover { color: #f04747; }
     .container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
-    h2 { font-size: 1.4rem; color: #fff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #2a2a3e; }
+    h2 { font-size: 1.2rem; color: #fff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #2a2a3e; }
     .card { background: #1a1a2e; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #2a2a3e; }
-    label { display: block; font-size: 0.85rem; color: #888; margin-bottom: 0.4rem; }
+    label { display: block; font-size: 0.82rem; color: #888; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.03em; }
     input, select { width: 100%; background: #0f0f13; border: 1px solid #3a3a5e; border-radius: 6px; padding: 0.6rem 0.9rem; color: #e0e0e0; font-size: 0.95rem; margin-bottom: 1rem; }
     input:focus, select:focus { outline: none; border-color: #5865F2; }
+    select option { background: #1a1a2e; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .btn { background: #5865F2; color: #fff; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: background 0.2s; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    .btn { background: #5865F2; color: #fff; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: background 0.2s; }
     .btn:hover { background: #4752c4; }
-    .btn-danger { background: #f04747; }
-    .btn-danger:hover { background: #c73c3c; }
-    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
-    .role-list { list-style: none; }
-    .role-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #2a2a3e; font-size: 0.95rem; }
-    .badge { background: #5865F2; color: #fff; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin-right: 0.5rem; }
-    .success { color: #43b581; font-size: 0.9rem; margin-top: 0.5rem; display: none; }
+    .btn-danger { background: transparent; color: #f04747; border: 1px solid #f04747; }
+    .btn-danger:hover { background: #f04747; color: #fff; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; border-radius: 4px; }
+    .item-list { list-style: none; margin-top: 1rem; }
+    .item-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.8rem; border-radius: 6px; margin-bottom: 0.4rem; background: #0f0f13; border: 1px solid #2a2a3e; font-size: 0.9rem; }
+    .badge { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-right: 0.5rem; }
+    .badge-blue { background: #5865F220; color: #5865F2; border: 1px solid #5865F250; }
+    .badge-gold { background: #FFD70020; color: #FFD700; border: 1px solid #FFD70050; }
+    .badge-green { background: #43b58120; color: #43b581; border: 1px solid #43b58150; }
+    .success-toast { position: fixed; bottom: 2rem; right: 2rem; background: #43b581; color: #fff; padding: 0.8rem 1.4rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+    .success-toast.show { opacity: 1; }
     .lb-list { list-style: none; }
-    .lb-list li { padding: 0.6rem 0; border-bottom: 1px solid #2a2a3e; display: flex; justify-content: space-between; }
-    .lb-list li:last-child { border: none; }
-    .lb-rank { color: #888; font-size: 0.85rem; }
+    .lb-list li { padding: 0.65rem 0.8rem; border-radius: 6px; margin-bottom: 0.4rem; background: #0f0f13; border: 1px solid #2a2a3e; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+    .lb-rank { color: #888; font-size: 0.82rem; min-width: 2rem; }
+    .empty { color: #555; font-size: 0.88rem; padding: 0.5rem 0; }
+    .role-color { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
   </style>
 </head>
 <body>
+
 <nav>
   <span class="brand">🤖 Bot Dashboard</span>
   <div class="user">
@@ -60,10 +68,9 @@
         <input type="number" id="xpPerMinuteVC" min="1" max="500" placeholder="10">
       </div>
     </div>
-    <label>ID kanału ogłoszeń (opcjonalnie)</label>
+    <label>Kanał ogłoszeń (opcjonalnie)</label>
     <input type="text" id="announcementChannelId" placeholder="np. 123456789012345678">
     <button class="btn" onclick="saveSettings()">Zapisz ustawienia</button>
-    <p class="success" id="settingsSuccess">✅ Zapisano!</p>
   </div>
 
   <!-- Role za levele -->
@@ -75,32 +82,138 @@
         <input type="number" id="newRoleLevel" min="1" placeholder="np. 5">
       </div>
       <div>
-        <label>ID Roli</label>
-        <input type="text" id="newRoleId" placeholder="np. 987654321098765432">
+        <label>Rola</label>
+        <select id="newRoleId">
+          <option value="">Ładowanie ról...</option>
+        </select>
       </div>
     </div>
-    <label>Nazwa roli (opcjonalnie)</label>
-    <input type="text" id="newRoleName" placeholder="np. Aktywny">
     <button class="btn" onclick="addRole()">Dodaj rolę</button>
-    <ul class="role-list" id="roleList" style="margin-top:1rem;"></ul>
+    <ul class="item-list" id="roleList"></ul>
+  </div>
+
+  <!-- Boostery XP -->
+  <div class="card">
+    <h2>⚡ Boostery XP</h2>
+    <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Użytkownicy z wybraną rolą będą otrzymywać zwielokrotnione XP.</p>
+    <div class="row">
+      <div>
+        <label>Rola boostera</label>
+        <select id="newBoosterRoleId">
+          <option value="">Ładowanie ról...</option>
+        </select>
+      </div>
+      <div>
+        <label>Mnożnik XP</label>
+        <select id="newBoosterMultiplier">
+          <option value="1.5">x1.5</option>
+          <option value="2">x2</option>
+          <option value="2.5">x2.5</option>
+          <option value="3">x3</option>
+          <option value="5">x5</option>
+          <option value="10">x10</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" onclick="addBooster()">Dodaj booster</button>
+    <ul class="item-list" id="boosterList"></ul>
+  </div>
+
+  <!-- Globalny Event XP -->
+  <div class="card">
+    <h2>🎉 Globalny Event XP</h2>
+    <p style="color:#888;font-size:0.85rem;margin-bottom:1rem;">Włącz mnożnik XP dla całego serwera — idealny na eventy, weekendy, urodziny serwera.</p>
+
+    <div id="eventStatus" style="margin-bottom:1rem;padding:0.8rem 1rem;border-radius:8px;background:#0f0f13;border:1px solid #2a2a3e;display:flex;align-items:center;justify-content:space-between;">
+      <span id="eventStatusText" style="color:#888">Ładowanie...</span>
+      <span id="eventCountdown" style="font-size:0.82rem;color:#FFD700;font-weight:600;"></span>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Nazwa eventu</label>
+        <input type="text" id="eventName" placeholder="np. Weekend XP Boost">
+      </div>
+      <div>
+        <label>Mnożnik XP</label>
+        <select id="eventMultiplier">
+          <option value="1.5">x1.5</option>
+          <option value="2" selected>x2</option>
+          <option value="2.5">x2.5</option>
+          <option value="3">x3</option>
+          <option value="5">x5</option>
+          <option value="10">x10</option>
+        </select>
+      </div>
+    </div>
+    <label>Czas trwania (opcjonalnie — zostaw puste żeby włączyć bez limitu)</label>
+    <select id="eventDuration" style="margin-bottom:1rem">
+      <option value="">Bez limitu czasu</option>
+      <option value="1">1 godzina</option>
+      <option value="2">2 godziny</option>
+      <option value="6">6 godzin</option>
+      <option value="12">12 godzin</option>
+      <option value="24">24 godziny</option>
+      <option value="48">48 godzin</option>
+      <option value="72">72 godziny (3 dni)</option>
+    </select>
+    <div style="display:flex;gap:0.8rem;">
+      <button class="btn" onclick="startEvent()">🚀 Włącz event</button>
+      <button class="btn btn-danger" onclick="stopEvent()">⏹ Wyłącz event</button>
+    </div>
   </div>
 
   <!-- Leaderboard -->
   <div class="card">
     <h2>📊 Leaderboard (Top 10)</h2>
-    <ul class="lb-list" id="lbList"><li>Ładowanie...</li></ul>
+    <ul class="lb-list" id="lbList"><li><span class="empty">Ładowanie...</span></li></ul>
   </div>
 
 </div>
 
+<div class="success-toast" id="toast"></div>
+
 <script>
+let guildRoles = [];
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function roleColor(hex) {
+  if (!hex || hex === 0) return '#888';
+  return `#${hex.toString(16).padStart(6, '0')}`;
+}
+
+function populateRoleSelects(roles) {
+  guildRoles = roles;
+  ['newRoleId', 'newBoosterRoleId'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">— wybierz rolę —</option>' +
+      roles.map(r => {
+        const color = r.color ? `#${r.color.toString(16).padStart(6,'0')}` : '#888';
+        return `<option value="${r.id}" data-color="${color}">${r.name}</option>`;
+      }).join('');
+  });
+}
+
+async function loadRoles() {
+  const res = await fetch('/api/roles');
+  const roles = await res.json();
+  populateRoleSelects(roles);
+}
+
 async function loadSettings() {
   const res = await fetch('/api/settings');
   const s = await res.json();
   document.getElementById('xpPerMessage').value = s.xpPerMessage;
   document.getElementById('xpPerMinuteVC').value = s.xpPerMinuteVC;
   document.getElementById('announcementChannelId').value = s.announcementChannelId || '';
-  renderRoles(s.levelRoles);
+  renderRoles(s.levelRoles || []);
+  renderBoosters(s.xpBoosters || []);
 }
 
 async function saveSettings() {
@@ -110,38 +223,79 @@ async function saveSettings() {
     announcementChannelId: document.getElementById('announcementChannelId').value,
   };
   await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const el = document.getElementById('settingsSuccess');
-  el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 3000);
+  showToast('✅ Ustawienia zapisane!');
 }
 
 async function addRole() {
   const level = document.getElementById('newRoleLevel').value;
   const roleId = document.getElementById('newRoleId').value;
-  const roleName = document.getElementById('newRoleName').value;
-  if (!level || !roleId) return alert('Podaj level i ID roli!');
-  const res = await fetch('/api/levelroles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level, roleId, roleName }) });
+  if (!level || !roleId) return alert('Wybierz level i rolę!');
+  const res = await fetch('/api/levelroles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level, roleId }) });
   const data = await res.json();
   renderRoles(data.levelRoles);
   document.getElementById('newRoleLevel').value = '';
   document.getElementById('newRoleId').value = '';
-  document.getElementById('newRoleName').value = '';
+  showToast('✅ Rola dodana!');
 }
 
 async function deleteRole(roleId) {
   const res = await fetch(`/api/levelroles/${roleId}`, { method: 'DELETE' });
   const data = await res.json();
   renderRoles(data.levelRoles);
+  showToast('🗑️ Rola usunięta');
 }
 
 function renderRoles(roles) {
   const ul = document.getElementById('roleList');
-  if (!roles.length) { ul.innerHTML = '<li style="color:#888;padding:0.5rem 0">Brak skonfigurowanych ról</li>'; return; }
-  ul.innerHTML = roles.map(r => `
-    <li>
-      <span><span class="badge">Lv. ${r.level}</span> ${r.roleName || r.roleId}</span>
+  if (!roles.length) { ul.innerHTML = '<li><span class="empty">Brak skonfigurowanych ról</span></li>'; return; }
+  const sorted = [...roles].sort((a, b) => a.level - b.level);
+  ul.innerHTML = sorted.map(r => {
+    const gRole = guildRoles.find(gr => gr.id === r.roleId);
+    const color = gRole?.color ? `#${gRole.color.toString(16).padStart(6,'0')}` : '#5865F2';
+    return `<li>
+      <span>
+        <span class="badge badge-blue">Lv. ${r.level}</span>
+        <span class="role-color" style="background:${color}"></span>
+        ${r.roleName || r.roleId}
+      </span>
       <button class="btn btn-danger btn-sm" onclick="deleteRole('${r.roleId}')">Usuń</button>
-    </li>`).join('');
+    </li>`;
+  }).join('');
+}
+
+async function addBooster() {
+  const roleId = document.getElementById('newBoosterRoleId').value;
+  const multiplier = document.getElementById('newBoosterMultiplier').value;
+  if (!roleId) return alert('Wybierz rolę!');
+  const res = await fetch('/api/boosters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId, multiplier }) });
+  const data = await res.json();
+  renderBoosters(data.xpBoosters);
+  document.getElementById('newBoosterRoleId').value = '';
+  showToast('✅ Booster dodany!');
+}
+
+async function deleteBooster(roleId) {
+  const res = await fetch(`/api/boosters/${roleId}`, { method: 'DELETE' });
+  const data = await res.json();
+  renderBoosters(data.xpBoosters);
+  showToast('🗑️ Booster usunięty');
+}
+
+function renderBoosters(boosters) {
+  const ul = document.getElementById('boosterList');
+  if (!boosters.length) { ul.innerHTML = '<li><span class="empty">Brak boosterów</span></li>'; return; }
+  ul.innerHTML = boosters.map(b => {
+    const gRole = guildRoles.find(gr => gr.id === b.roleId);
+    const color = gRole?.color ? `#${gRole.color.toString(16).padStart(6,'0')}` : '#FFD700';
+    return `<li>
+      <span>
+        <span class="badge badge-gold">x${b.multiplier} XP</span>
+        <span class="role-color" style="background:${color}"></span>
+        ${b.roleName || b.roleId}
+      </span>
+      <button class="btn btn-danger btn-sm" onclick="deleteBooster('${b.roleId}')">Usuń</button>
+    </li>`;
+  }).join('');
 }
 
 async function loadLeaderboard() {
@@ -149,16 +303,97 @@ async function loadLeaderboard() {
   const users = await res.json();
   const medals = ['🥇','🥈','🥉'];
   const ul = document.getElementById('lbList');
-  if (!users.length) { ul.innerHTML = '<li style="color:#888">Brak danych</li>'; return; }
+  if (!users.length) { ul.innerHTML = '<li><span class="empty">Brak danych</span></li>'; return; }
   ul.innerHTML = users.map((u, i) => `
     <li>
-      <span>${medals[i] || `<span class="lb-rank">${i+1}.</span>`} <code>${u.userId}</code></span>
-      <span>Lv. <strong>${u.level}</strong> — ${u.xp} XP</span>
+      <span>
+        <span class="lb-rank">${medals[i] || `${i+1}.`}</span>
+        <strong>${u.displayName}</strong>
+      </span>
+      <span>
+        <span class="badge badge-blue">Lv. ${u.level}</span>
+        <span style="color:#888;font-size:0.82rem">${u.xp} XP</span>
+      </span>
     </li>`).join('');
 }
 
-loadSettings();
+let countdownInterval = null;
+
+async function loadEvent() {
+  const res = await fetch('/api/event');
+  const ev = await res.json();
+  renderEventStatus(ev);
+  if (ev.name) document.getElementById('eventName').value = ev.name;
+  if (ev.multiplier) document.getElementById('eventMultiplier').value = ev.multiplier;
+}
+
+function renderEventStatus(ev) {
+  const statusEl = document.getElementById('eventStatus');
+  const textEl = document.getElementById('eventStatusText');
+  const countdownEl = document.getElementById('eventCountdown');
+
+  if (countdownInterval) clearInterval(countdownInterval);
+
+  if (ev.active) {
+    statusEl.style.borderColor = '#43b581';
+    statusEl.style.background = '#43b58110';
+    textEl.innerHTML = `<span style="color:#43b581">● AKTYWNY</span> — <strong>${ev.name || 'Event XP'}</strong> <span class="badge badge-gold">x${ev.multiplier} XP</span>`;
+
+    if (ev.endsAt) {
+      const updateCountdown = () => {
+        const remaining = new Date(ev.endsAt) - new Date();
+        if (remaining <= 0) {
+          countdownEl.textContent = 'Wygasł';
+          clearInterval(countdownInterval);
+          loadEvent();
+          return;
+        }
+        const h = Math.floor(remaining / 3600000);
+        const m = Math.floor((remaining % 3600000) / 60000);
+        const s = Math.floor((remaining % 60000) / 1000);
+        countdownEl.textContent = `⏱ ${h}h ${m}m ${s}s`;
+      };
+      updateCountdown();
+      countdownInterval = setInterval(updateCountdown, 1000);
+    } else {
+      countdownEl.textContent = '∞ Bez limitu';
+    }
+  } else {
+    statusEl.style.borderColor = '#2a2a3e';
+    statusEl.style.background = '#0f0f13';
+    textEl.innerHTML = `<span style="color:#555">● NIEAKTYWNY</span>`;
+    countdownEl.textContent = '';
+  }
+}
+
+async function startEvent() {
+  const name = document.getElementById('eventName').value || 'Event XP';
+  const multiplier = document.getElementById('eventMultiplier').value;
+  const durationHours = document.getElementById('eventDuration').value;
+  const res = await fetch('/api/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active: true, name, multiplier, durationHours }),
+  });
+  const data = await res.json();
+  renderEventStatus(data.globalEvent);
+  showToast('🚀 Event XP włączony!');
+}
+
+async function stopEvent() {
+  const res = await fetch('/api/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active: false }),
+  });
+  const data = await res.json();
+  renderEventStatus(data.globalEvent);
+  showToast('⏹ Event XP wyłączony');
+}
+
+loadRoles().then(() => loadSettings());
 loadLeaderboard();
+loadEvent();
 </script>
 </body>
 </html>
