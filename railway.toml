@@ -1,0 +1,17 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "node index.js"
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "discord-bot-dashboard"
+```
+
+**19. .gitignore**
+```
+node_modules/
+.env
+*.log
