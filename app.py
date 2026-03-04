@@ -54,13 +54,15 @@ def xp_for_level(level):
 def fetch_discord_roles():
     """Pobiera listę ról z serwera Discord przez API"""
     try:
+        print(f"DEBUG: Token zaczyna się od: {DISCORD_TOKEN[:20] if DISCORD_TOKEN else 'BRAK TOKENU'}")
+        print(f"DEBUG: Guild ID: {GUILD_ID}")
         url = f"https://discord.com/api/v10/guilds/{GUILD_ID}/roles"
         req = urllib.request.Request(url, headers={"Authorization": f"Bot {DISCORD_TOKEN}"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             roles = json.loads(resp.read().decode())
-            # Filtruj: usuń @everyone i boty, posortuj po pozycji
             roles = [r for r in roles if r["name"] != "@everyone" and not r.get("managed", False)]
             roles.sort(key=lambda r: r["position"], reverse=True)
+            print(f"DEBUG: Pobrano {len(roles)} ról!")
             return roles
     except Exception as e:
         print(f"Błąd pobierania ról: {e}")
