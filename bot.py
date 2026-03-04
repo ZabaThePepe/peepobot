@@ -87,6 +87,25 @@ def get_role_for_level(config, level):
 
 voice_tracker = {}
 
+
+
+async def save_guild_roles():
+    """Zapisuje role serwera do pliku dla dashboardu"""
+    import json
+    guild_id = int(os.environ.get("GUILD_ID", "1478527413146091651"))
+    guild = bot.get_guild(guild_id)
+    if guild:
+        roles = [
+            {"id": str(r.id), "name": r.name}
+            for r in sorted(guild.roles, key=lambda r: r.position, reverse=True)
+            if r.name != "@everyone" and not r.managed
+        ]
+        with open("guild_roles.json", "w") as f:
+            json.dump(roles, f)
+        print(f"✅ Zapisano {len(roles)} ról do guild_roles.json")
+    else:
+        print("⚠️ Nie znaleziono serwera — sprawdź GUILD_ID")
+
 @bot.event
 async def on_ready():
     print(f"✅ Bot uruchomiony jako {bot.user}")
@@ -334,21 +353,3 @@ if __name__ == "__main__":
         print("❌ Brak DISCORD_TOKEN!")
     else:
         bot.run(TOKEN)
-
-
-async def save_guild_roles():
-    """Zapisuje role serwera do pliku dla dashboardu"""
-    import json
-    guild_id = int(os.environ.get("GUILD_ID", "1478527413146091651"))
-    guild = bot.get_guild(guild_id)
-    if guild:
-        roles = [
-            {"id": str(r.id), "name": r.name}
-            for r in sorted(guild.roles, key=lambda r: r.position, reverse=True)
-            if r.name != "@everyone" and not r.managed
-        ]
-        with open("guild_roles.json", "w") as f:
-            json.dump(roles, f)
-        print(f"✅ Zapisano {len(roles)} ról do guild_roles.json")
-    else:
-        print("⚠️ Nie znaleziono serwera — sprawdź GUILD_ID")
