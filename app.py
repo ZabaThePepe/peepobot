@@ -1,6 +1,5 @@
 """
-app.py — Discord Bot + Dashboard webowy
-Działa na Hugging Face Spaces (SDK: docker)
+app.py — Discord Bot + Dashboard webowy z listą ról
 """
 
 import threading
@@ -8,13 +7,16 @@ import subprocess
 import sys
 import json
 import os
+import urllib.request
+import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
-import urllib.parse
 
 DB_FILE = "levels.json"
 CONFIG_FILE = "config.json"
 ADMIN_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")
+DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
+GUILD_ID = "1478527413146091651"
 
 
 def load_db():
@@ -49,11 +51,31 @@ def xp_for_level(level):
     return level ** 2 * 100
 
 
+def fetch_discord_roles():
+    """Pobiera listę ról z serwera Discord przez API"""
+    try:
+        url = f"https://discord.com/api/v10/guilds/{GUILD_ID}/roles"
+        req = urllib.request.Request(url, headers={"Authorization": f"Bot {DISCORD_TOKEN}"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            roles = json.loads(resp.read().decode())
+            # Filtruj: usuń @everyone i boty, posortuj po pozycji
+            roles = [r for r in roles if r["name"] != "@everyone" and not r.get("managed", False)]
+            roles.sort(key=lambda r: r["position"], reverse=True)
+            return roles
+    except Exception as e:
+        print(f"Błąd pobierania ról: {e}")
+        return []
+
+
 def get_dashboard_html(db, config, message=""):
     users = db.get("users", {})
     stats = db.get("stats", {})
     sorted_users = sorted(users.items(), key=lambda x: x[1].get("xp", 0), reverse=True)
 
+    # Pobierz role z Discorda
+    discord_roles = fetch_discord_roles()
+
+    # Leaderboard
     rows = ""
     medals = ["🥇", "🥈", "🥉"]
     for i, (uid, data) in enumerate(sorted_users[:20]):
@@ -82,6 +104,7 @@ def get_dashboard_html(db, config, message=""):
             <td>{data.get('voice_minutes', 0):,}</td>
         </tr>"""
 
+    # Tabela skonfigurowanych ról
     roles = config.get("roles", [])
     roles_rows = ""
     for r in sorted(roles, key=lambda x: x["level"]):
@@ -91,7 +114,6 @@ def get_dashboard_html(db, config, message=""):
             <td><span class="level-badge">Lvl {r['level']}</span></td>
             <td>{xp_needed:,} XP</td>
             <td><span class="role-tag">{r['role_name']}</span></td>
-            <td class="role-id">{r['role_id']}</td>
             <td>
                 <form method="POST" action="/remove_role" style="display:inline">
                     <input type="hidden" name="password" id="del-pass-{r['level']}" value="">
@@ -103,7 +125,33 @@ def get_dashboard_html(db, config, message=""):
         </tr>"""
 
     if not roles_rows:
-        roles_rows = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Brak ról. Dodaj pierwszą poniżej!</td></tr>'
+        roles_rows = '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">Brak ról. Dodaj pierwszą poniżej!</td></tr>'
+
+    # Opcje select dla ról Discord
+    role_options = '<option value="">-- Wybierz rolę --</option>'
+    if discord_roles:
+        for r in discord_roles:
+            role_options += f'<option value="{r["id"]}" data-name="{r["name"]}">{r["name"]}</option>'
+        role_select = f"""
+        <div class="form-group">
+            <label>Rola Discord</label>
+            <select name="role_id" id="role-select" required onchange="updateRoleName(this)">
+                {role_options}
+            </select>
+        </div>
+        <input type="hidden" name="role_name" id="role-name-hidden">
+        """
+    else:
+        role_select = """
+        <div class="form-group">
+            <label>Rola Discord (nie udało się pobrać — wpisz ID ręcznie)</label>
+            <input type="text" name="role_id" placeholder="np. 123456789012345678" required>
+        </div>
+        <div class="form-group">
+            <label>Nazwa roli</label>
+            <input type="text" name="role_name" placeholder="np. Weteran" required>
+        </div>
+        """
 
     msg_html = f'<div class="alert {"alert-success" if "✅" in message else "alert-error"}">{message}</div>' if message else ""
     total_users = len(users)
@@ -155,7 +203,6 @@ def get_dashboard_html(db, config, message=""):
   .rank{{font-size:1.1rem;width:48px}}
   .username{{font-weight:700;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
   .xp-val{{color:var(--accent);font-weight:700;font-family:'Syne',sans-serif}}
-  .role-id{{color:var(--muted);font-size:.7rem}}
   .level-badge{{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;white-space:nowrap}}
   .role-tag{{background:rgba(88,101,242,.2);border:1px solid rgba(88,101,242,.4);color:var(--accent2);padding:3px 10px;border-radius:20px;font-size:.75rem}}
   .progress-wrap{{background:var(--border);border-radius:4px;height:6px;margin-bottom:3px;overflow:hidden}}
@@ -163,8 +210,14 @@ def get_dashboard_html(db, config, message=""):
   .form-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}}
   .form-group{{display:flex;flex-direction:column;gap:6px}}
   label{{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:1px}}
-  input[type="text"],input[type="number"],input[type="password"]{{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;font-family:'Space Mono',monospace;font-size:.85rem;transition:border-color .2s}}
-  input:focus{{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,101,242,.15)}}
+  input[type="text"],input[type="number"],input[type="password"],select{{
+    background:var(--bg);border:1px solid var(--border);
+    color:var(--text);padding:10px 14px;border-radius:10px;
+    font-family:'Space Mono',monospace;font-size:.85rem;transition:border-color .2s;
+    width:100%;
+  }}
+  select option{{background:var(--surface2);color:var(--text)}}
+  input:focus,select:focus{{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,101,242,.15)}}
   .btn{{padding:10px 20px;border-radius:10px;border:none;cursor:pointer;font-family:'Space Mono',monospace;font-size:.82rem;font-weight:700;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}}
   .btn-primary{{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}}
   .btn-primary:hover{{transform:translateY(-1px);box-shadow:0 4px 16px rgba(88,101,242,.4)}}
@@ -210,6 +263,7 @@ def get_dashboard_html(db, config, message=""):
     <div class="stat-card"><div class="stat-icon">🏅</div><div class="stat-val">{len(roles)}</div><div class="stat-label">Skonfig. rang</div></div>
   </div>
 
+  <!-- Role za poziomy -->
   <div class="section">
     <div class="section-header">
       <span class="section-title">🏅 Role za Poziomy</span>
@@ -217,23 +271,32 @@ def get_dashboard_html(db, config, message=""):
     </div>
     <div class="section-body">
       <table>
-        <thead><tr><th>Poziom</th><th>XP Wymagane</th><th>Nazwa Roli</th><th>ID Roli</th><th>Akcja</th></tr></thead>
+        <thead><tr><th>Poziom</th><th>XP Wymagane</th><th>Nazwa Roli</th><th>Akcja</th></tr></thead>
         <tbody>{roles_rows}</tbody>
       </table>
+
       <hr style="border-color:var(--border);margin:24px 0">
       <p style="font-size:.85rem;color:var(--muted);margin-bottom:16px">➕ Dodaj nową rolę za poziom</p>
+
       <form method="POST" action="/add_role">
         <div class="form-grid">
-          <div class="form-group"><label>Poziom (np. 5)</label><input type="number" name="level" min="1" max="100" placeholder="5" required></div>
-          <div class="form-group"><label>Nazwa roli (dokładna!)</label><input type="text" name="role_name" placeholder="np. Weteran" required></div>
-          <div class="form-group"><label>ID roli Discord</label><input type="text" name="role_id" placeholder="np. 123456789012345678" required></div>
-          <div class="form-group"><label>Hasło admina</label><input type="password" name="password" id="add-pass" placeholder="••••••••" required></div>
-          <div class="form-group"><label>&nbsp;</label>
+          <div class="form-group">
+            <label>Poziom (np. 5)</label>
+            <input type="number" name="level" min="1" max="100" placeholder="5" required>
+          </div>
+          {role_select}
+          <div class="form-group">
+            <label>Hasło admina</label>
+            <input type="password" name="password" id="add-pass" placeholder="••••••••" required>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
             <button type="submit" class="btn btn-primary"
-              onclick="document.getElementById('add-pass').value=document.getElementById('admin-pass').value">Dodaj Rolę</button>
+              onclick="syncPassword(); updateRoleNameBeforeSubmit()">Dodaj Rolę</button>
           </div>
         </div>
       </form>
+
       <div class="xp-ref">
         <div class="xp-chip">Lvl 1 = <span>100 XP</span></div>
         <div class="xp-chip">Lvl 3 = <span>900 XP</span></div>
@@ -246,6 +309,7 @@ def get_dashboard_html(db, config, message=""):
     </div>
   </div>
 
+  <!-- Ranking -->
   <div class="section">
     <div class="section-header">
       <span class="section-title">🏆 Ranking Użytkowników</span>
@@ -254,11 +318,12 @@ def get_dashboard_html(db, config, message=""):
     <div class="section-body" style="padding:0">
       <table>
         <thead><tr><th>#</th><th>Użytkownik</th><th>Poziom</th><th>XP</th><th>Postęp</th><th>Wiad.</th><th>Voice (min)</th></tr></thead>
-        <tbody>{''.join(rows) if rows else '<tr><td colspan="7" style="text-align:center;color:#888;padding:30px">Brak danych — bot zbiera XP gdy ktoś pisze na serwerze!</td></tr>'}</tbody>
+        <tbody>{''.join(rows) if rows else '<tr><td colspan="7" style="text-align:center;color:#888;padding:30px">Brak danych — napisz coś na serwerze!</td></tr>'}</tbody>
       </table>
     </div>
   </div>
 
+  <!-- Ustawienia -->
   <div class="section">
     <div class="section-header"><span class="section-title">⚙️ Ustawienia XP</span></div>
     <div class="section-body">
@@ -269,23 +334,34 @@ def get_dashboard_html(db, config, message=""):
           <div class="form-group"><label>Cooldown (sekundy)</label><input type="number" name="xp_cooldown" value="{config.get('xp_cooldown', 60)}" min="0" max="3600"></div>
           <div class="form-group"><label>Hasło admina</label><input type="password" name="password" id="cfg-pass" placeholder="••••••••" required></div>
           <div class="form-group"><label>&nbsp;</label>
-            <button type="submit" class="btn btn-primary"
-              onclick="document.getElementById('cfg-pass').value=document.getElementById('admin-pass').value">Zapisz</button>
+            <button type="submit" class="btn btn-primary" onclick="document.getElementById('cfg-pass').value=document.getElementById('admin-pass').value">Zapisz</button>
           </div>
         </div>
       </form>
-      <p style="color:var(--muted);font-size:.75rem;margin-top:16px">
-        💡 ID roli: Discord → Ustawienia serwera → Role → tryb dewelopera → prawy klik → Kopiuj ID roli
-      </p>
     </div>
   </div>
 </div>
 
 <script>
+  function syncPassword() {{
+    const p = document.getElementById('admin-pass').value;
+    document.getElementById('add-pass').value = p;
+  }}
+
+  function updateRoleNameBeforeSubmit() {{
+    const sel = document.getElementById('role-select');
+    const hidden = document.getElementById('role-name-hidden');
+    if (sel && hidden) {{
+      const opt = sel.options[sel.selectedIndex];
+      hidden.value = opt.getAttribute('data-name') || opt.text;
+    }}
+  }}
+
   document.querySelectorAll('form').forEach(form => {{
     form.addEventListener('submit', () => {{
       const p = document.getElementById('admin-pass').value;
       form.querySelectorAll('input[type="password"]').forEach(inp => {{ if (!inp.value) inp.value = p; }});
+      updateRoleNameBeforeSubmit();
     }});
   }});
 </script>
@@ -314,8 +390,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/add_role":
             try:
                 level = int(params["level"])
-                role_name = params["role_name"].strip()
-                role_id = params["role_id"].strip()
+                role_name = params.get("role_name", "").strip()
+                role_id = params.get("role_id", "").strip()
                 config = load_config()
                 roles = [r for r in config.get("roles", []) if r["level"] != level]
                 roles.append({"level": level, "role_id": role_id, "role_name": role_name})
@@ -366,7 +442,7 @@ if __name__ == "__main__":
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     print("✅ Bot uruchomiony w tle!")
-    port = 7860
+    port = int(os.environ.get("PORT", 7860))
     print(f"🌐 Dashboard na http://0.0.0.0:{port}")
     server = HTTPServer(("0.0.0.0", port), Handler)
     server.serve_forever()
