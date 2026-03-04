@@ -136,27 +136,39 @@
       </div>
       <div>
         <label>Mnożnik XP</label>
-        <select id="eventMultiplier">
-          <option value="1.5">x1.5</option>
-          <option value="2" selected>x2</option>
-          <option value="2.5">x2.5</option>
-          <option value="3">x3</option>
-          <option value="5">x5</option>
-          <option value="10">x10</option>
-        </select>
+        <div style="position:relative;">
+          <span style="position:absolute;left:0.9rem;top:50%;transform:translateY(-50%);color:#FFD700;font-weight:700;pointer-events:none;">x</span>
+          <input type="number" id="eventMultiplier" min="1.1" step="0.1" value="2" style="padding-left:1.8rem;margin-bottom:0;">
+        </div>
       </div>
     </div>
-    <label>Czas trwania (opcjonalnie — zostaw puste żeby włączyć bez limitu)</label>
-    <select id="eventDuration" style="margin-bottom:1rem">
-      <option value="">Bez limitu czasu</option>
-      <option value="1">1 godzina</option>
-      <option value="2">2 godziny</option>
-      <option value="6">6 godzin</option>
-      <option value="12">12 godzin</option>
-      <option value="24">24 godziny</option>
-      <option value="48">48 godzin</option>
-      <option value="72">72 godziny (3 dni)</option>
-    </select>
+    <label style="margin-top:1rem;">Czas trwania (same zera = bez limitu czasu)</label>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0.5rem;margin-bottom:1rem;margin-top:0.4rem;">
+      <div>
+        <label style="text-align:center;font-size:0.72rem;">Rok</label>
+        <input type="number" id="durYears" min="0" value="0" style="text-align:center;margin:0;padding:0.5rem 0.2rem;">
+      </div>
+      <div>
+        <label style="text-align:center;font-size:0.72rem;">Miesiąc</label>
+        <input type="number" id="durMonths" min="0" value="0" style="text-align:center;margin:0;padding:0.5rem 0.2rem;">
+      </div>
+      <div>
+        <label style="text-align:center;font-size:0.72rem;">Dzień</label>
+        <input type="number" id="durDays" min="0" value="0" style="text-align:center;margin:0;padding:0.5rem 0.2rem;">
+      </div>
+      <div>
+        <label style="text-align:center;font-size:0.72rem;">Godzin</label>
+        <input type="number" id="durHours" min="0" value="0" style="text-align:center;margin:0;padding:0.5rem 0.2rem;">
+      </div>
+      <div>
+        <label style="text-align:center;font-size:0.72rem;">Minut</label>
+        <input type="number" id="durMinutes" min="0" value="0" style="text-align:center;margin:0;padding:0.5rem 0.2rem;">
+      </div>
+      <div>
+        <label style="text-align:center;font-size:0.72rem;">Sekund</label>
+        <input type="number" id="durSeconds" min="0" value="0" style="text-align:center;margin:0;padding:0.5rem 0.2rem;">
+      </div>
+    </div>
     <div style="display:flex;gap:0.8rem;">
       <button class="btn" onclick="startEvent()">🚀 Włącz event</button>
       <button class="btn btn-danger" onclick="stopEvent()">⏹ Wyłącz event</button>
@@ -325,6 +337,17 @@ async function loadEvent() {
   renderEventStatus(ev);
   if (ev.name) document.getElementById('eventName').value = ev.name;
   if (ev.multiplier) document.getElementById('eventMultiplier').value = ev.multiplier;
+  // Jeśli event aktywny z timerem — pokaż pozostały czas w polach
+  if (ev.active && ev.endsAt) {
+    let rem = Math.max(0, Math.floor((new Date(ev.endsAt) - new Date()) / 1000));
+    const d = Math.floor(rem / 86400); rem %= 86400;
+    const h = Math.floor(rem / 3600); rem %= 3600;
+    const m = Math.floor(rem / 60); rem %= 60;
+    document.getElementById('durDays').value = d;
+    document.getElementById('durHours').value = h;
+    document.getElementById('durMinutes').value = m;
+    document.getElementById('durSeconds').value = rem;
+  }
 }
 
 function renderEventStatus(ev) {
@@ -348,10 +371,15 @@ function renderEventStatus(ev) {
           loadEvent();
           return;
         }
-        const h = Math.floor(remaining / 3600000);
-        const m = Math.floor((remaining % 3600000) / 60000);
-        const s = Math.floor((remaining % 60000) / 1000);
-        countdownEl.textContent = `⏱ ${h}h ${m}m ${s}s`;
+        const totalSec = Math.floor(remaining / 1000);
+        const d = Math.floor(totalSec / 86400);
+        const h = Math.floor((totalSec % 86400) / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        const parts = [];
+        if (d) parts.push(`${d}d`);
+        parts.push(`${h}h`, `${m}m`, `${s}s`);
+        countdownEl.textContent = `⏱ ${parts.join(' ')}`;
       };
       updateCountdown();
       countdownInterval = setInterval(updateCountdown, 1000);
@@ -368,8 +396,15 @@ function renderEventStatus(ev) {
 
 async function startEvent() {
   const name = document.getElementById('eventName').value || 'Event XP';
-  const multiplier = document.getElementById('eventMultiplier').value;
-  const durationHours = document.getElementById('eventDuration').value;
+  const multiplier = parseFloat(document.getElementById('eventMultiplier').value) || 2;
+  const years = parseInt(document.getElementById('durYears').value) || 0;
+  const months = parseInt(document.getElementById('durMonths').value) || 0;
+  const days = parseInt(document.getElementById('durDays').value) || 0;
+  const hours = parseInt(document.getElementById('durHours').value) || 0;
+  const minutes = parseInt(document.getElementById('durMinutes').value) || 0;
+  const seconds = parseInt(document.getElementById('durSeconds').value) || 0;
+  const totalSeconds = seconds + minutes*60 + hours*3600 + days*86400 + months*2592000 + years*31536000;
+  const durationHours = totalSeconds > 0 ? totalSeconds / 3600 : null;
   const res = await fetch('/api/event', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
