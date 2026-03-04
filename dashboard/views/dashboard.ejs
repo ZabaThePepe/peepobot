@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f0f13; color: #e0e0e0; }
+    nav { background: #1a1a2e; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a2a3e; }
+    nav .brand { font-size: 1.2rem; font-weight: 700; color: #fff; }
+    nav .user { display: flex; align-items: center; gap: 1rem; }
+    nav .user img { width: 36px; height: 36px; border-radius: 50%; }
+    nav .logout { color: #888; text-decoration: none; font-size: 0.9rem; }
+    nav .logout:hover { color: #f04747; }
+    .container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+    h2 { font-size: 1.4rem; color: #fff; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #2a2a3e; }
+    .card { background: #1a1a2e; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #2a2a3e; }
+    label { display: block; font-size: 0.85rem; color: #888; margin-bottom: 0.4rem; }
+    input, select { width: 100%; background: #0f0f13; border: 1px solid #3a3a5e; border-radius: 6px; padding: 0.6rem 0.9rem; color: #e0e0e0; font-size: 0.95rem; margin-bottom: 1rem; }
+    input:focus, select:focus { outline: none; border-color: #5865F2; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .btn { background: #5865F2; color: #fff; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: background 0.2s; }
+    .btn:hover { background: #4752c4; }
+    .btn-danger { background: #f04747; }
+    .btn-danger:hover { background: #c73c3c; }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+    .role-list { list-style: none; }
+    .role-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #2a2a3e; font-size: 0.95rem; }
+    .badge { background: #5865F2; color: #fff; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin-right: 0.5rem; }
+    .success { color: #43b581; font-size: 0.9rem; margin-top: 0.5rem; display: none; }
+    .lb-list { list-style: none; }
+    .lb-list li { padding: 0.6rem 0; border-bottom: 1px solid #2a2a3e; display: flex; justify-content: space-between; }
+    .lb-list li:last-child { border: none; }
+    .lb-rank { color: #888; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+<nav>
+  <span class="brand">🤖 Bot Dashboard</span>
+  <div class="user">
+    <img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" alt="avatar">
+    <span><%= user.username %></span>
+    <a href="/auth/logout" class="logout">Wyloguj</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Ustawienia XP -->
+  <div class="card">
+    <h2>⚙️ Ustawienia XP</h2>
+    <div class="row">
+      <div>
+        <label>XP za wiadomość</label>
+        <input type="number" id="xpPerMessage" min="1" max="500" placeholder="15">
+      </div>
+      <div>
+        <label>XP za minutę na VC</label>
+        <input type="number" id="xpPerMinuteVC" min="1" max="500" placeholder="10">
+      </div>
+    </div>
+    <label>ID kanału ogłoszeń (opcjonalnie)</label>
+    <input type="text" id="announcementChannelId" placeholder="np. 123456789012345678">
+    <button class="btn" onclick="saveSettings()">Zapisz ustawienia</button>
+    <p class="success" id="settingsSuccess">✅ Zapisano!</p>
+  </div>
+
+  <!-- Role za levele -->
+  <div class="card">
+    <h2>🏆 Role za levele</h2>
+    <div class="row">
+      <div>
+        <label>Level</label>
+        <input type="number" id="newRoleLevel" min="1" placeholder="np. 5">
+      </div>
+      <div>
+        <label>ID Roli</label>
+        <input type="text" id="newRoleId" placeholder="np. 987654321098765432">
+      </div>
+    </div>
+    <label>Nazwa roli (opcjonalnie)</label>
+    <input type="text" id="newRoleName" placeholder="np. Aktywny">
+    <button class="btn" onclick="addRole()">Dodaj rolę</button>
+    <ul class="role-list" id="roleList" style="margin-top:1rem;"></ul>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="card">
+    <h2>📊 Leaderboard (Top 10)</h2>
+    <ul class="lb-list" id="lbList"><li>Ładowanie...</li></ul>
+  </div>
+
+</div>
+
+<script>
+async function loadSettings() {
+  const res = await fetch('/api/settings');
+  const s = await res.json();
+  document.getElementById('xpPerMessage').value = s.xpPerMessage;
+  document.getElementById('xpPerMinuteVC').value = s.xpPerMinuteVC;
+  document.getElementById('announcementChannelId').value = s.announcementChannelId || '';
+  renderRoles(s.levelRoles);
+}
+
+async function saveSettings() {
+  const body = {
+    xpPerMessage: document.getElementById('xpPerMessage').value,
+    xpPerMinuteVC: document.getElementById('xpPerMinuteVC').value,
+    announcementChannelId: document.getElementById('announcementChannelId').value,
+  };
+  await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const el = document.getElementById('settingsSuccess');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+async function addRole() {
+  const level = document.getElementById('newRoleLevel').value;
+  const roleId = document.getElementById('newRoleId').value;
+  const roleName = document.getElementById('newRoleName').value;
+  if (!level || !roleId) return alert('Podaj level i ID roli!');
+  const res = await fetch('/api/levelroles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level, roleId, roleName }) });
+  const data = await res.json();
+  renderRoles(data.levelRoles);
+  document.getElementById('newRoleLevel').value = '';
+  document.getElementById('newRoleId').value = '';
+  document.getElementById('newRoleName').value = '';
+}
+
+async function deleteRole(roleId) {
+  const res = await fetch(`/api/levelroles/${roleId}`, { method: 'DELETE' });
+  const data = await res.json();
+  renderRoles(data.levelRoles);
+}
+
+function renderRoles(roles) {
+  const ul = document.getElementById('roleList');
+  if (!roles.length) { ul.innerHTML = '<li style="color:#888;padding:0.5rem 0">Brak skonfigurowanych ról</li>'; return; }
+  ul.innerHTML = roles.map(r => `
+    <li>
+      <span><span class="badge">Lv. ${r.level}</span> ${r.roleName || r.roleId}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteRole('${r.roleId}')">Usuń</button>
+    </li>`).join('');
+}
+
+async function loadLeaderboard() {
+  const res = await fetch('/api/leaderboard');
+  const users = await res.json();
+  const medals = ['🥇','🥈','🥉'];
+  const ul = document.getElementById('lbList');
+  if (!users.length) { ul.innerHTML = '<li style="color:#888">Brak danych</li>'; return; }
+  ul.innerHTML = users.map((u, i) => `
+    <li>
+      <span>${medals[i] || `<span class="lb-rank">${i+1}.</span>`} <code>${u.userId}</code></span>
+      <span>Lv. <strong>${u.level}</strong> — ${u.xp} XP</span>
+    </li>`).join('');
+}
+
+loadSettings();
+loadLeaderboard();
+</script>
+</body>
+</html>
