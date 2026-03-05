@@ -45,6 +45,9 @@ function startVCTracking(userId, guildId, state) {
         return stopVCTracking(userId);
       }
 
+      // Brak XP na kanale AFK
+      if (guild.afkChannelId && state.channelId === guild.afkChannelId) return;
+
       const humanMembers = channel.members.filter(m => !m.user.bot);
       console.log(`[VC] Ludzi na kanale: ${humanMembers.size}`);
       if (humanMembers.size < 2) return;
