@@ -24,17 +24,22 @@ module.exports = {
     if (user.lastMessage && (now - user.lastMessage) < cooldown) return;
 
     user.lastMessage = now;
-    user.xp += settings.xpPerMessage;
+
+    // Oblicz mnożnik
+    const multiplier = getMultiplier(settings, message.member);
+
+    user.xp += Math.floor(settings.xpPerMessage * multiplier);
+
     const leveledUp = user.checkLevelUp();
     await user.save();
 
-    if (leveledUp && settings.announcementChannelId) {
-      const channel = message.guild.channels.cache.get(settings.announcementChannelId);
-      if (channel) {
-        channel.send(`🎉 ${message.author} osiągnął **Level ${user.level}**! Gratulacje!`);
+    if (leveledUp) {
+      if (settings.announcementChannelId) {
+        const channel = message.guild.channels.cache.get(settings.announcementChannelId);
+        if (channel) {
+          channel.send(`🎉 ${message.author} osiągnął **Level ${user.level}**! Gratulacje!`);
+        }
       }
-
-      // Nadaj rolę za level
       const reward = settings.levelRoles.find(r => r.level === user.level);
       if (reward) {
         const member = await message.guild.members.fetch(message.author.id).catch(() => null);
@@ -46,3 +51,26 @@ module.exports = {
     }
   },
 };
+
+function getMultiplier(settings, member) {
+  let multiplier = 1;
+
+  // Globalny event
+  const ev = settings.globalEvent;
+  if (ev && ev.active) {
+    const expired = ev.endsAt && new Date() > new Date(ev.endsAt);
+    if (!expired) multiplier *= ev.multiplier;
+  }
+
+  // Boostery rólowe
+  if (member && settings.xpBoosters?.length) {
+    for (const booster of settings.xpBoosters) {
+      if (member.roles.cache.has(booster.roleId)) {
+        multiplier *= booster.multiplier;
+        break; // tylko najlepszy booster — usuń break jeśli chcesz stackować
+      }
+    }
+  }
+
+  return multiplier;
+}
