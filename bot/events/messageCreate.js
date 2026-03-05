@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const GuildSettings = require('../../models/GuildSettings');
 
@@ -25,27 +26,49 @@ module.exports = {
 
     user.lastMessage = now;
 
-    // Oblicz mnożnik
     const multiplier = getMultiplier(settings, message.member);
-
     user.xp += Math.floor(settings.xpPerMessage * multiplier);
 
     const leveledUp = user.checkLevelUp();
     await user.save();
 
     if (leveledUp) {
+      const reward = settings.levelRoles.find(r => r.level === user.level);
+      const member = await message.guild.members.fetch(message.author.id).catch(() => null);
+
+      // Nadaj role
+      if (reward && member) {
+        const role = message.guild.roles.cache.get(reward.roleId);
+        if (role) member.roles.add(role).catch(console.error);
+      }
+
+      // Embed powiadomienie
       if (settings.announcementChannelId) {
         const channel = message.guild.channels.cache.get(settings.announcementChannelId);
         if (channel) {
-          channel.send(`🎉 ${message.author} osiągnął **Level ${user.level}**! Gratulacje!`);
-        }
-      }
-      const reward = settings.levelRoles.find(r => r.level === user.level);
-      if (reward) {
-        const member = await message.guild.members.fetch(message.author.id).catch(() => null);
-        if (member) {
-          const role = message.guild.roles.cache.get(reward.roleId);
-          if (role) member.roles.add(role).catch(console.error);
+          let color = '#5865F2';
+          if (user.level >= 10) color = '#9B59B6';
+          if (user.level >= 25) color = '#E67E22';
+          if (user.level >= 50) color = '#FFD700';
+
+          const xpNeeded = user.xpForNextLevel();
+          const embed = new EmbedBuilder()
+            .setColor(color)
+            .setAuthor({
+              name: message.author.username,
+              iconURL: message.author.displayAvatarURL({ dynamic: true }),
+            })
+            .setTitle('⬆️ Level Up!')
+            .setDescription(`Gratulacje, ${message.author}!\nOsiągnąłeś **Level ${user.level}**! 🎉`)
+            .addFields(
+              { name: '🎯 Nowy poziom', value: `\`\`\`${user.level}\`\`\``, inline: true },
+              { name: '⚡ XP do następnego', value: `\`\`\`${xpNeeded}\`\`\``, inline: true },
+              ...(reward ? [{ name: '🏅 Nowa rola', value: `<@&${reward.roleId}>`, inline: true }] : []),
+            )
+            .setFooter({ text: `${message.guild.name} • System poziomów` })
+            .setTimestamp();
+
+          channel.send({ embeds: [embed] });
         }
       }
     }
@@ -55,19 +78,17 @@ module.exports = {
 function getMultiplier(settings, member) {
   let multiplier = 1;
 
-  // Globalny event
   const ev = settings.globalEvent;
   if (ev && ev.active) {
     const expired = ev.endsAt && new Date() > new Date(ev.endsAt);
     if (!expired) multiplier *= ev.multiplier;
   }
 
-  // Boostery rólowe
   if (member && settings.xpBoosters?.length) {
     for (const booster of settings.xpBoosters) {
       if (member.roles.cache.has(booster.roleId)) {
         multiplier *= booster.multiplier;
-        break; // tylko najlepszy booster — usuń break jeśli chcesz stackować
+        break;
       }
     }
   }
