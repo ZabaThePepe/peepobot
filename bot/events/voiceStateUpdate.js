@@ -10,22 +10,23 @@ module.exports = {
     if (guild?.id !== process.env.GUILD_ID) return;
 
     const userId = newState.member?.id || oldState.member?.id;
+    console.log(`[VC] userId=${userId} old=${oldState.channelId} new=${newState.channelId}`);
     if (!userId) return;
 
     const guildId = guild.id;
 
-    // Dołączył do kanału
     if (!oldState.channelId && newState.channelId) {
+      console.log(`[VC] ${userId} dołączył do kanału ${newState.channelId}`);
       startVCTracking(userId, guildId, newState);
     }
 
-    // Opuścił kanał
     if (oldState.channelId && !newState.channelId) {
+      console.log(`[VC] ${userId} opuścił kanał`);
       stopVCTracking(userId);
     }
 
-    // Zmienił kanał
     if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
+      console.log(`[VC] ${userId} zmienił kanał`);
       stopVCTracking(userId);
       startVCTracking(userId, guildId, newState);
     }
@@ -33,13 +34,19 @@ module.exports = {
 };
 
 function startVCTracking(userId, guildId, state) {
+  console.log(`[VC] Startuje timer dla ${userId}`);
   const timer = setInterval(async () => {
     try {
+      console.log(`[VC] Timer tick dla ${userId}`);
       const guild = state.guild;
       const channel = guild.channels.cache.get(state.channelId);
-      if (!channel) return stopVCTracking(userId);
+      if (!channel) {
+        console.log(`[VC] Kanal nie znaleziony, zatrzymuje timer`);
+        return stopVCTracking(userId);
+      }
 
       const humanMembers = channel.members.filter(m => !m.user.bot);
+      console.log(`[VC] Ludzi na kanale: ${humanMembers.size}`);
       if (humanMembers.size < 2) return;
 
       const settings = await GuildSettings.findOneAndUpdate(
@@ -57,7 +64,9 @@ function startVCTracking(userId, guildId, state) {
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
-      user.xp += Math.floor(settings.xpPerMinuteVC * multiplier);
+      const xpGained = Math.floor(settings.xpPerMinuteVC * multiplier);
+      console.log(`[VC] Dodaje ${xpGained} XP dla ${userId} (mnoznik: ${multiplier})`);
+      user.xp += xpGained;
       const leveledUp = user.checkLevelUp();
       await user.save();
 
@@ -75,7 +84,7 @@ function startVCTracking(userId, guildId, state) {
         }
       }
     } catch (err) {
-      console.error('VC tracking error:', err);
+      console.error('[VC] Blad timera:', err);
     }
   }, 60_000);
 
@@ -86,25 +95,24 @@ function stopVCTracking(userId) {
   if (vcTimers.has(userId)) {
     clearInterval(vcTimers.get(userId));
     vcTimers.delete(userId);
+    console.log(`[VC] Timer zatrzymany dla ${userId}`);
   }
 }
 
 function getMultiplier(settings, member) {
   let multiplier = 1;
 
-  // Globalny event
   const ev = settings.globalEvent;
   if (ev && ev.active) {
     const expired = ev.endsAt && new Date() > new Date(ev.endsAt);
     if (!expired) multiplier *= ev.multiplier;
   }
 
-  // Boostery rólowe
   if (member && settings.xpBoosters?.length) {
     for (const booster of settings.xpBoosters) {
       if (member.roles.cache.has(booster.roleId)) {
         multiplier *= booster.multiplier;
-        break; // tylko jeden booster — usuń break jeśli chcesz stackować wszystkie
+        break;
       }
     }
   }
