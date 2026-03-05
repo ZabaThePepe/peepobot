@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 const GuildSettings = require('../../models/GuildSettings');
 
@@ -10,23 +11,17 @@ module.exports = {
     if (guild?.id !== process.env.GUILD_ID) return;
 
     const userId = newState.member?.id || oldState.member?.id;
-    console.log(`[VC] userId=${userId} old=${oldState.channelId} new=${newState.channelId}`);
     if (!userId) return;
 
     const guildId = guild.id;
 
     if (!oldState.channelId && newState.channelId) {
-      console.log(`[VC] ${userId} dołączył do kanału ${newState.channelId}`);
       startVCTracking(userId, guildId, newState);
     }
-
     if (oldState.channelId && !newState.channelId) {
-      console.log(`[VC] ${userId} opuścił kanał`);
       stopVCTracking(userId);
     }
-
     if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
-      console.log(`[VC] ${userId} zmienił kanał`);
       stopVCTracking(userId);
       startVCTracking(userId, guildId, newState);
     }
@@ -34,22 +29,15 @@ module.exports = {
 };
 
 function startVCTracking(userId, guildId, state) {
-  console.log(`[VC] Startuje timer dla ${userId}`);
   const timer = setInterval(async () => {
     try {
-      console.log(`[VC] Timer tick dla ${userId}`);
       const guild = state.guild;
       const channel = guild.channels.cache.get(state.channelId);
-      if (!channel) {
-        console.log(`[VC] Kanal nie znaleziony, zatrzymuje timer`);
-        return stopVCTracking(userId);
-      }
+      if (!channel) return stopVCTracking(userId);
 
-      // Brak XP na kanale AFK
       if (guild.afkChannelId && state.channelId === guild.afkChannelId) return;
 
       const humanMembers = channel.members.filter(m => !m.user.bot);
-      console.log(`[VC] Ludzi na kanale: ${humanMembers.size}`);
       if (humanMembers.size < 2) return;
 
       const settings = await GuildSettings.findOneAndUpdate(
@@ -68,22 +56,47 @@ function startVCTracking(userId, guildId, state) {
       );
 
       const xpGained = Math.floor(settings.xpPerMinuteVC * multiplier);
-      console.log(`[VC] Dodaje ${xpGained} XP dla ${userId} (mnoznik: ${multiplier})`);
       user.xp += xpGained;
       const leveledUp = user.checkLevelUp();
       await user.save();
 
       if (leveledUp) {
-        if (settings.announcementChannelId) {
-          const announceCh = guild.channels.cache.get(settings.announcementChannelId);
-          if (announceCh) {
-            announceCh.send(`🎉 <@${userId}> osiągnął **Level ${user.level}** podczas rozmowy głosowej!`);
-          }
-        }
+        // Nadaj rolę
         const reward = settings.levelRoles.find(r => r.level === user.level);
         if (reward && member) {
           const role = guild.roles.cache.get(reward.roleId);
           if (role) member.roles.add(role).catch(console.error);
+        }
+
+        // Embed powiadomienie
+        if (settings.announcementChannelId) {
+          const announceCh = guild.channels.cache.get(settings.announcementChannelId);
+          if (announceCh && member) {
+            let color = '#5865F2';
+            if (user.level >= 10) color = '#9B59B6';
+            if (user.level >= 25) color = '#E67E22';
+            if (user.level >= 50) color = '#FFD700';
+
+            const xpNeeded = user.xpForNextLevel();
+            const embed = new EmbedBuilder()
+              .setColor(color)
+              .setAuthor({
+                name: member.displayName || member.user.username,
+                iconURL: member.user.displayAvatarURL({ dynamic: true }),
+              })
+              .setTitle('⬆️ Level Up!')
+              .setDescription(`Gratulacje, <@${userId}>!\nOsiągnąłeś **Level ${user.level}**! 🎉`)
+              .addFields(
+                { name: '🎯 Nowy poziom', value: `\`\`\`${user.level}\`\`\``, inline: true },
+                { name: '⚡ XP do następnego', value: `\`\`\`${xpNeeded}\`\`\``, inline: true },
+                { name: '🎙️ Źródło', value: `\`\`\`Rozmowa głosowa\`\`\``, inline: true },
+                ...(reward ? [{ name: '🏅 Nowa rola', value: `<@&${reward.roleId}>`, inline: true }] : []),
+              )
+              .setFooter({ text: `${guild.name} • System poziomów` })
+              .setTimestamp();
+
+            announceCh.send({ embeds: [embed] });
+          }
         }
       }
     } catch (err) {
@@ -98,7 +111,6 @@ function stopVCTracking(userId) {
   if (vcTimers.has(userId)) {
     clearInterval(vcTimers.get(userId));
     vcTimers.delete(userId);
-    console.log(`[VC] Timer zatrzymany dla ${userId}`);
   }
 }
 
