@@ -29,6 +29,9 @@ module.exports = {
 };
 
 function startVCTracking(userId, guildId, state) {
+  const member = state.guild.members.cache.get(userId);
+  if (member?.user.bot) return; // boty nie dostają timera
+
   const timer = setInterval(async () => {
     try {
       const guild = state.guild;
@@ -61,14 +64,12 @@ function startVCTracking(userId, guildId, state) {
       await user.save();
 
       if (leveledUp) {
-        // Nadaj rolę
         const reward = settings.levelRoles.find(r => r.level === user.level);
         if (reward && member) {
           const role = guild.roles.cache.get(reward.roleId);
           if (role) member.roles.add(role).catch(console.error);
         }
 
-        // Embed powiadomienie
         if (settings.announcementChannelId) {
           const announceCh = guild.channels.cache.get(settings.announcementChannelId);
           if (announceCh && member) {
