@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const REDIRECT_URI = `${process.env.DASHBOARD_URL}/auth/callback`;
+const REDIRECT_URI = `${process.env.DASHBOARD_URL}/auth/callback`; // <- musi pasować do Discorda
 
 // Przekierowanie do Discorda w celu logowania
 router.get('/login', (req, res) => {
@@ -16,12 +16,11 @@ router.get('/login', (req, res) => {
 });
 
 // Callback po zalogowaniu w Discordzie
-router.get('/auth/callback', async (req, res) => {
+router.get('/callback', async (req, res) => { // <- zmienione z /auth/callback na /callback
   const { code } = req.query;
   if (!code) return res.redirect('/');
 
   try {
-    // Wymiana kodu na token
     const tokenRes = await axios.post('https://discord.com/api/oauth2/token',
       new URLSearchParams({
         client_id: process.env.DISCORD_CLIENT_ID,
@@ -36,7 +35,6 @@ router.get('/auth/callback', async (req, res) => {
     const { access_token } = tokenRes.data;
     const headers = { Authorization: `Bearer ${access_token}` };
 
-    // Pobranie danych użytkownika i guilds
     const [userRes, guildsRes] = await Promise.all([
       axios.get('https://discord.com/api/users/@me', { headers }),
       axios.get('https://discord.com/api/users/@me/guilds', { headers }),
@@ -45,7 +43,6 @@ router.get('/auth/callback', async (req, res) => {
     const guild = guildsRes.data.find(g => g.id === process.env.GUILD_ID);
     const isAdmin = guild && (guild.permissions & 0x8) === 0x8;
 
-    // Zapis sesji
     req.session.user = {
       id: userRes.data.id,
       username: userRes.data.username,
@@ -53,7 +50,6 @@ router.get('/auth/callback', async (req, res) => {
       isAdmin: !!isAdmin,
     };
 
-    // Przekierowanie na dashboard jeśli admin, inaczej error
     res.redirect(isAdmin ? '/dashboard' : '/?error=noadmin');
   } catch (err) {
     console.error('OAuth error:', err.response?.data || err.message);
