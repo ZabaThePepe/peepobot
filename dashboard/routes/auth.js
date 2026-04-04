@@ -2,9 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const REDIRECT_URI = `${process.env.DASHBOARD_URL}/auth/callback`; // <- musi pasować do Discorda
+const REDIRECT_URI = `${process.env.DASHBOARD_URL}/auth/callback`;
 
-// Przekierowanie do Discorda w celu logowania
 router.get('/login', (req, res) => {
   const params = new URLSearchParams({
     client_id: process.env.DISCORD_CLIENT_ID,
@@ -15,8 +14,8 @@ router.get('/login', (req, res) => {
   res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
 });
 
-// Callback po zalogowaniu w Discordzie
-router.get('/callback', async (req, res) => { // <- zmienione z /auth/callback na /callback
+// <-- poprawione tutaj -->
+router.get('/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.redirect('/');
 
@@ -57,7 +56,6 @@ router.get('/callback', async (req, res) => { // <- zmienione z /auth/callback n
   }
 });
 
-// Wylogowanie
 router.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/');
