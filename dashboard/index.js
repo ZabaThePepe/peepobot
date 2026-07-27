@@ -35,4 +35,7 @@ app.get('/dashboard', require('./middleware/auth'), (req, res) => {
   res.render('dashboard');
 });
 
+// Trust proxy for Tailscale
+app.set('trust proxy', 1);
+
 module.exports = app;
