@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - GUILD_ID=${GUILD_ID}
+      - MONGODB_URI=${MONGODB_URI}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    networks:
+      - peepobot-net
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:latest
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-password}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - peepobot-net
+    restart: unless-stopped
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=peepobot
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+    networks:
+      - peepobot-net
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  tailscale_state:
+
+networks:
+  peepobot-net:
+    driver: bridge
