@@ -15,7 +15,10 @@
     "axios": "^1.6.2",
     "ejs": "^3.1.9",
     "dotenv": "^16.3.1",
-    "connect-mongo": "^5.1.0"
+    "connect-mongo": "^5.1.0",
+    "@discordjs/voice": "^0.16.0",
+    "discord-player": "^6.7.0",
+    "youtube-dl-exec": "^2.4.10"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
